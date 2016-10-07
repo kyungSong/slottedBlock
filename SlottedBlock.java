@@ -158,7 +158,7 @@ public class SlottedBlock
 	}
 	int smallestIndex = intBufferLength;
 	for (int i = 1; i < 2*intBuffer.get(0); i = i+2) {
-	    if (intBuffer.get(i) < smallestIndex) {
+	    if (intBuffer.get(i) < smallestIndex & intBuffer.get(i) != -1) {
 		smallestIndex = intBuffer.get(i);
 	    }
 	}
@@ -169,7 +169,10 @@ public class SlottedBlock
 	    intBuffer.put(index+i, inputData.get(i));
 	}
 	intBuffer.put(0, intBuffer.get(0) + 1);
-	
+
+	if(intBuffer.get(intBuffer.get(0)*2 - 1) == -1) {
+	    intBuffer.put(intBuffer.get(0)*2 + 1, -1);
+	}
 	intBuffer.put(intBuffer.get(0)*2 - 1, index);
 	intBuffer.put(intBuffer.get(0)*2, record.length);
 	
