@@ -283,8 +283,21 @@ public class SlottedBlock
     */
     public RID nextRecord(RID curRid)
     {
+	//if curRid is the last record.
+	if(intBuffer.get(curRid.slotNum*2 + 4) == -1) {
+	    return null;
+	}
 	
-	return null;
+	int nextIndex = curRid.slotNum*2 + 2;
+	while(intBuffer.get(nextIndex) != -1) {
+	    nextIndex += 2;
+	    if(intBuffer.get(nextIndex) != 0) {
+		break;
+	    }
+
+	}
+	RID rid = new RID(this.getBlockId(), (nextIndex/2) - 1);
+	return rid;
     }
 
     /**
