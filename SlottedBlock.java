@@ -49,9 +49,20 @@ public class SlottedBlock
      */
     public void init()
     {
-	intBuffer.put(0,0);
-	//-1 denotes the end of "slot array".
+	//# of entries
+	intBuffer.put(0, 0);
+	
+	//prevBlockId
 	intBuffer.put(1,-1);
+
+	//BlockId
+	intBuffer.put(2,-1);
+
+	//nextBlockId
+	intBuffer.put(3,-1);
+	
+	//"end" of slot array.
+	intBuffer.put(4,-1);
 	
     }
 
@@ -62,7 +73,7 @@ public class SlottedBlock
      */
     public void setBlockId(int blockId)
     {
-	this.blockId = blockId;
+	intBuffer.put(2, blockId);
     }
 
     /**
@@ -71,7 +82,7 @@ public class SlottedBlock
      */
     public int getBlockId()
     {
-        return blockId;
+        return intBuffer.get(2);
     }
 
     /**
@@ -80,7 +91,7 @@ public class SlottedBlock
      */
     public void setNextBlockId(int blockId)
     {
-	this.nextBlockId = blockId;
+	intBuffer.put(3, blockId);
     }
 
     /**
@@ -89,7 +100,7 @@ public class SlottedBlock
      */
     public int getNextBlockId()
     {
-        return this.nextBlockId;
+        return intBuffer.get(3);
     }
 
     /**
@@ -98,7 +109,7 @@ public class SlottedBlock
      */
     public void setPrevBlockId(int blockId)
     {
-	this.prevBlockId = blockId;
+	intBuffer.put(1, blockId);
     }
 
     /**
@@ -107,7 +118,7 @@ public class SlottedBlock
      */
     public int getPrevBlockId()
     {
-        return prevBlockId;
+        return intBuffer.get(1);
     }
 
     /**
@@ -122,14 +133,27 @@ public class SlottedBlock
      */
     public int getAvailableSpace()
     {
-	/* space of meta data = (# of entries x size of int) + end of slot array marker + # of entries marker (both of which takes 4 bytes) 
+	/* space of meta data = (# of entries x 2 x size of int) + end of slot array marker + # of entries marker + prev,next,current blockId
 	   space of records = loop through meta data and tally up second integers(representing how big the record is).
 	*/
-	int spaceTaken = 8 + intBuffer.get(0)*2*SIZE_OF_INT;
-	for (int i = 1; i < 2*intBuffer.get(0); i = i+2) {
-	    spaceTaken += intBuffer.get(i + 1);
+	int spaceTaken = intBuffer.get(0)*2*SIZE_OF_INT + 20;
+	
+	//curIndex starts from 4 to account for meta data (# of entries, prev,next,current blockId spans in indexes 0~3)
+	int curIndex = 4;
+	Boolean needNewSlot = true;
+	while (intBuffer.get(curIndex) != -1) {
+	    System.out.println(curIndex);
+	    if(intBuffer.get(curIndex) == 0) {
+		needNewSlot = false;
+	    }
+	    spaceTaken += intBuffer.get(curIndex + 1);
+	    curIndex += 2;
 	}
-	return data.length - spaceTaken - 2*SIZE_OF_INT;
+	if(needNewSlot) {
+	    //each "slot" needs two ints, so add 8 bytes to spaceTaken.
+	    spaceTaken += 8;
+	}
+	return data.length - spaceTaken;
     }
         
 
@@ -157,24 +181,48 @@ public class SlottedBlock
 	    throw new BlockFullException();
 	}
 	int smallestIndex = intBufferLength;
-	for (int i = 1; i < 2*intBuffer.get(0); i = i+2) {
-	    if (intBuffer.get(i) < smallestIndex & intBuffer.get(i) != -1) {
-		smallestIndex = intBuffer.get(i);
+
+	//curIndex starts from 4 to account for meta data (# of entries, prev,next,current blockId spans in indexes 0~3)
+	int curIndex = 4;
+
+	while (intBuffer.get(curIndex) != -1) {
+	    if(intBuffer.get(curIndex) < smallestIndex) {
+		smallestIndex = intBuffer.get(curIndex);
 	    }
+	    curIndex += 2;
 	}
-	int index = smallestIndex -record.length/SIZE_OF_INT;
+
+	int index = smallestIndex - record.length/SIZE_OF_INT;
 	IntBuffer inputData = (ByteBuffer.wrap(record)).asIntBuffer();
 	
 	for(int i = 0; i < record.length/SIZE_OF_INT; i++) {
 	    intBuffer.put(index+i, inputData.get(i));
 	}
+	//increment # of entries accordingly.
 	intBuffer.put(0, intBuffer.get(0) + 1);
 
-	if(intBuffer.get(intBuffer.get(0)*2 - 1) == -1) {
-	    intBuffer.put(intBuffer.get(0)*2 + 1, -1);
+
+	/*Find a spot to put meta data(slot data) in.
+	  If there is an empty slot in the slot array, use that.
+	 */
+	int slotIndex = 4;
+	while (intBuffer.get(slotIndex) != -1) {
+	    if(intBuffer.get(slotIndex) == 0) {
+		break;
+	    }
+	    slotIndex += 2;
 	}
-	intBuffer.put(intBuffer.get(0)*2 - 1, index);
-	intBuffer.put(intBuffer.get(0)*2, record.length);
+
+	//"extend" slot array if necessary.
+	if(intBuffer.get(slotIndex) == -1) {
+	    intBuffer.put(slotIndex + 2, -1);
+	}
+
+	//put index where data starts to slot array
+	intBuffer.put(slotIndex, index);
+
+	//put length of the data(in bytes) to slot array
+	intBuffer.put(slotIndex + 1, record.length);
 	
 	RID rid = new RID(this.getBlockId(), intBuffer.get(0));
 	return rid;
@@ -255,8 +303,15 @@ public class SlottedBlock
 	} else if(rid.slotNum == -1) {
 	    throw new BadSlotIdException();
 	}
-	int start = intBuffer.get(rid.slotNum);
-	int finish = start + intBuffer.get(rid.slotNum + 1)/SIZE_OF_INT;
+	/*slot Number that points to the index of record we are looking for.
+	 index = rid.slotNum + 3 (to skip over blockIds)
+	 */
+	int start = intBuffer.get(rid.slotNum + 3);
+
+	//End of data index for the record we are trying to get.
+	int finish = start + intBuffer.get(rid.slotNum + 4)/SIZE_OF_INT;
+
+	
 	byte[] returnArray = new byte[(finish-start)*SIZE_OF_INT];
 	int count = 0;
 	for(int i = start; i < finish; i++) {
