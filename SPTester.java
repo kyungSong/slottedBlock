@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.*;
+import java.nio.*;
 
 public class SPTester
 {
@@ -50,13 +51,19 @@ public class SPTester
             int buffSize = 20;
             int limit = 20;
             byte[] tmpBuf = new byte[buffSize];
-
+	    /* code to test if dump block works.
+	    int count = 0;
+	    for(int i = 0; i < 5; i++) {
+		System.arraycopy(ByteBuffer.allocate(4).putInt(i).array(), 0, tmpBuf, count, 4);
+		count += 4;
+	    }
+	    
+	    */
             SlottedBlock sp = new SlottedBlock(new Block());
             sp.init();
             sp.setBlockId(7);
             sp.setNextBlockId(8);
             sp.setPrevBlockId(SlottedBlock.INVALID_BLOCK);
-	    System.out.println(tmpBuf);
             System.out.println("--- Test 2: Insert and traversal of " +
                                "records ---");
             for (int i=0; i < limit; i++)
@@ -78,6 +85,7 @@ public class SPTester
                                    ", " + rid.slotNum);
                 rid = sp.nextRecord(rid);
             }
+	    //sp.dumpBlock();
         }
     }
 

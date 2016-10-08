@@ -26,10 +26,6 @@ public class SlottedBlock
     private IntBuffer intBuffer;
     private int intBufferLength;
 
-    private int blockId;
-    private int nextBlockId;
-    private int prevBlockId;
-
     /**
      * Constructs a slotted block by wrapping around a block object already
      * provided.
@@ -142,7 +138,6 @@ public class SlottedBlock
 	int curIndex = 4;
 	Boolean needNewSlot = true;
 	while (intBuffer.get(curIndex) != -1) {
-	    System.out.println(curIndex);
 	    if(intBuffer.get(curIndex) == 0) {
 		needNewSlot = false;
 	    }
@@ -165,6 +160,31 @@ public class SlottedBlock
     */ 
     public void dumpBlock()
     {
+	System.out.println("Number of entries: " + intBuffer.get(0));
+	System.out.println("===========contents===========");
+	
+	int curIndex = 4;
+
+	int offset = 0;
+	int length = 0;
+
+	while(intBuffer.get(curIndex) != -1) {
+	    if(intBuffer.get(curIndex) == 0) {
+		curIndex += 2;
+		continue;
+	    }
+	    offset = intBuffer.get(curIndex)*4;
+	    length = intBuffer.get(curIndex + 1);
+	    System.out.println("Slot Array Item #: " + ((curIndex/2) - 1) + " | " + "offset: " + offset
+			       + " | " + "Length: " + length);
+	    System.out.print("Content:           ");
+	    for (int i = offset/4; i < (offset+length)/4; i++) {
+		System.out.print(intBuffer.get(i) + " | ");
+	    }
+	    System.out.println("\n ---------------------------");
+	    curIndex += 2;
+	}
+	System.out.println("Free space starts at byte " + (curIndex*4 + 4));
     }
 
     /**
@@ -191,7 +211,7 @@ public class SlottedBlock
 	    }
 	    curIndex += 2;
 	}
-
+	//assuming all data are ints.
 	int index = smallestIndex - record.length/SIZE_OF_INT;
 	IntBuffer inputData = (ByteBuffer.wrap(record)).asIntBuffer();
 	
@@ -224,7 +244,7 @@ public class SlottedBlock
 	//put length of the data(in bytes) to slot array
 	intBuffer.put(slotIndex + 1, record.length);
 	
-	RID rid = new RID(this.getBlockId(), intBuffer.get(0));
+	RID rid = new RID(this.getBlockId(), (slotIndex/2) - 1);
 	return rid;
     }
 
@@ -259,14 +279,15 @@ public class SlottedBlock
 	if(this.empty()) {
 	    return null;
 	}
-	int firstRecord = 0;
-	for (int i = 1; i < 2*intBuffer.get(0); i = i+2) {
-	    firstRecord += 1;
-	    if (intBuffer.get(i) != 0) {
+	
+	int firstRecord = 4;
+	while(intBuffer.get(firstRecord) != -1) {
+	    if (intBuffer.get(firstRecord) != 0) {
 		break;
 	    }
+	    firstRecord += 2;
 	}
-	RID rid = new RID(this.getBlockId(), firstRecord);
+	RID rid = new RID(this.getBlockId(), (firstRecord/2)-1);
 	return rid;
     }
 
@@ -317,12 +338,11 @@ public class SlottedBlock
 	    throw new BadSlotIdException();
 	}
 	/*slot Number that points to the index of record we are looking for.
-	 index = rid.slotNum + 3 (to skip over blockIds)
 	 */
-	int start = intBuffer.get(rid.slotNum + 3);
+	int start = intBuffer.get((rid.slotNum+1)*2);
 
 	//End of data index for the record we are trying to get.
-	int finish = start + intBuffer.get(rid.slotNum + 4)/SIZE_OF_INT;
+	int finish = start + intBuffer.get((rid.slotNum+1)*2 + 1)/SIZE_OF_INT;
 
 	
 	byte[] returnArray = new byte[(finish-start)*SIZE_OF_INT];
