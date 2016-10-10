@@ -1,4 +1,5 @@
 import java.nio.*;
+import java.util.*;
 
 /**
  * Slotted file block. This is a wrapper around a traditional Block that
@@ -265,7 +266,72 @@ public class SlottedBlock
     */
     public boolean deleteRecord(RID rid)
     {
-        return false;
+	int slotArrayLength = 0;
+	int slotIndex = 4;
+	int end_of_free_space = data.length;
+	
+	//calculate the "length" of the slot array. (two indices makes one slot in the slot array)
+	while(intBuffer.get(slotIndex) != -1) {
+	    System.out.println(intBuffer.get(slotIndex) + "      " + slotIndex);
+	    slotArrayLength += 1;
+	    if(intBuffer.get(slotIndex) < end_of_free_space) {
+		end_of_free_space = intBuffer.get(slotIndex) - 1;
+	    }
+	    slotIndex += 2;
+	    System.out.println(intBuffer.get(slotIndex) + "      " + slotIndex);
+	    System.out.println("----------");
+	}
+	//if slot we are looking for never existed.
+	if (rid.slotNum > slotArrayLength) {
+	    System.out.println(rid.slotNum + ":" + slotArrayLength);
+	    System.out.println(1);
+	    return false;
+	}
+	//if slot we are looking for is already deleted.
+	else if (intBuffer.get(rid.slotNum*2 + 2) == 0) {
+	    System.out.println(2);
+	    return false;
+	}
+	//if we are in here, it means item to delete does exist.
+	int offset = intBuffer.get(rid.slotNum*2 + 2);
+	int length = intBuffer.get(rid.slotNum*2 + 3)/4;
+
+	//delete the slot array.
+	intBuffer.put(rid.slotNum*2 + 2, 0);
+	intBuffer.put(rid.slotNum*2 + 3, 0);
+
+	intBuffer.put(0, intBuffer.get(0) - 1);
+
+	int dataIndex = offset - 1;
+	//compact the data accordingly.
+	while(dataIndex > end_of_free_space) {
+	    intBuffer.put(dataIndex + length, intBuffer.get(dataIndex));
+	    dataIndex -= 1;
+	}
+	//update slot arrays accordingly.
+	slotIndex = 4;
+	while(intBuffer.get(slotIndex) != -1) {
+	    System.out.println(slotIndex + " aaaaaa ");
+	    if(intBuffer.get(slotIndex) < offset && intBuffer.get(slotIndex) > 0) {
+		System.out.println(slotIndex + " adfaff ");
+		intBuffer.put(slotIndex, intBuffer.get(slotIndex) + length);
+	    }
+	    slotIndex += 2;
+	}
+
+	//compact slot array if necessary.
+	int prevSlotIndex = slotIndex;
+	slotIndex -= 2;
+	while(intBuffer.get(slotIndex) == 0 && slotIndex != 4) {
+	    slotIndex -= 2;
+	    System.out.println(slotIndex + " adfaff ");
+	}
+	intBuffer.put(prevSlotIndex, 0);
+	intBuffer.put(slotIndex + 2, -1);
+	//System.out.println(slotIndex + " adfaff ");
+
+
+	return true;
     }
 
     /**

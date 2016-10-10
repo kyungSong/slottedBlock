@@ -89,6 +89,80 @@ public class SPTester
         }
     }
 
+    public static class Test3 implements Testable
+    {
+	public void test() throws Exception
+	{
+            int buffSize = 20;
+            int limit = 20;
+            byte[] tmpBuf = new byte[buffSize];
+
+	    /* code to test if dump block works. */
+	    
+	    int count = 0;
+	    for(int i = 0; i < 5; i++) {
+		System.arraycopy(ByteBuffer.allocate(4).putInt(i).array(), 0, tmpBuf, count, 4);
+		count += 4;
+	    }
+	    
+            SlottedBlock sp = new SlottedBlock(new Block());
+            sp.init();
+            sp.setBlockId(7);
+            sp.setNextBlockId(8);
+            sp.setPrevBlockId(SlottedBlock.INVALID_BLOCK);
+            System.out.println("--- Test 3: Insert, traversal and deletion of " +
+                               "records ---");
+            for (int i=0; i < limit; i++)
+            {
+                RID rid = sp.insertRecord(tmpBuf);
+                System.out.println("Inserted record, RID " + rid.blockId +
+                                   ", " + rid.slotNum);
+                rid = sp.nextRecord(rid);
+            }
+
+            if (sp.empty())
+                throw new TestFailedException("The block cannot be empty");
+            
+            RID rid = sp.firstRecord();
+            while (rid != null)
+            {
+                tmpBuf = sp.getRecord(rid); 
+                System.out.println("Retrieved record, RID " + rid.blockId +
+                                   ", " + rid.slotNum);
+                rid = sp.nextRecord(rid);
+            }
+	    sp.dumpBlock();
+
+	    System.out.println("--- delete starts ---");
+	    //delete last record
+	    RID rid_delete = new RID(7, 20);
+	    boolean deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    
+	    rid_delete = new RID(7, 17);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    sp.dumpBlock();
+	    rid_delete = new RID(7, 18);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    rid_delete = new RID(7, 19);
+	    deleted = sp.deleteRecord(rid_delete);
+	    System.out.println(deleted);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    	    
+	    //sp.dumpBlock();
+        }
+    }	    
+
 
     public static boolean runTest(Testable testObj)
     {
@@ -113,5 +187,6 @@ public class SPTester
 
          runTest(new Test1());
          runTest(new Test2());
+	 runTest(new Test3());
     }
 }
