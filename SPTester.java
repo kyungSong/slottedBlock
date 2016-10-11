@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.*;
 import java.nio.*;
+import java.util.Random;
 
 public class SPTester
 {
@@ -134,19 +135,20 @@ public class SPTester
 	    sp.dumpBlock();
 
 	    System.out.println("--- delete starts ---");
+	    
 	    //delete last record
 	    RID rid_delete = new RID(7, 20);
 	    boolean deleted = sp.deleteRecord(rid_delete);
 	    if (deleted) {
 		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
 	    }
-	    
+
+	    //delete items that are not last record to last record (to see if compacting slot array works).
 	    rid_delete = new RID(7, 17);
 	    deleted = sp.deleteRecord(rid_delete);
 	    if (deleted) {
 		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
 	    }
-	    sp.dumpBlock();
 	    rid_delete = new RID(7, 18);
 	    deleted = sp.deleteRecord(rid_delete);
 	    if (deleted) {
@@ -154,14 +156,112 @@ public class SPTester
 	    }
 	    rid_delete = new RID(7, 19);
 	    deleted = sp.deleteRecord(rid_delete);
-	    System.out.println(deleted);
 	    if (deleted) {
 		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
 	    }
 	    	    
-	    //sp.dumpBlock();
+	    sp.dumpBlock();
+
+	    //try deleting items that don't exist/that are already deleted.
+	    rid_delete = new RID(7, 19);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+
+	    rid_delete = new RID(7, 14);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+
+	    rid_delete = new RID(7, 14);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    
         }
-    }	    
+    }
+    
+public static class Test4 implements Testable
+    {
+	public void test() throws Exception
+	{
+            int limit = 20;
+	    
+            SlottedBlock sp = new SlottedBlock(new Block());
+            sp.init();
+            sp.setBlockId(7);
+            sp.setNextBlockId(8);
+            sp.setPrevBlockId(SlottedBlock.INVALID_BLOCK);
+	    /* code to test if dump block works. */
+	    System.out.println("--- Test 4: Insert, traversal and deletion of " +
+                               "variable length records ---");
+	    
+	    for(int i = 0; i < limit; i++) {
+		byte[] tmpBuf = new byte[(i+1)*4];
+                RID rid = sp.insertRecord(tmpBuf);
+                System.out.println("Inserted record, RID " + rid.blockId +
+                                   ", " + rid.slotNum);
+                rid = sp.nextRecord(rid);
+		
+	    }
+	    sp.dumpBlock();
+
+            if (sp.empty())
+                throw new TestFailedException("The block cannot be empty");
+
+	    System.out.println("--- delete starts ---");
+	    
+	    //delete last record
+	    RID rid_delete = new RID(7, 20);
+	    boolean deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+
+	    //delete items that are not last record to last record (to see if compacting slot array works).
+	    rid_delete = new RID(7, 17);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    rid_delete = new RID(7, 18);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    rid_delete = new RID(7, 19);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+	    	    
+	    sp.dumpBlock();
+
+	    //try deleting items that don't exist/that are already deleted.
+	    rid_delete = new RID(7, 19);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+
+	    rid_delete = new RID(7, 14);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+	    }
+
+	    rid_delete = new RID(7, 14);
+	    deleted = sp.deleteRecord(rid_delete);
+	    if (deleted) {
+		System.out.println("Record " + rid_delete.slotNum + " was successfully deleted.");
+		}
+	    sp.dumpBlock();
+	    
+	    }
+    }
 
 
     public static boolean runTest(Testable testObj)
@@ -188,5 +288,6 @@ public class SPTester
          runTest(new Test1());
          runTest(new Test2());
 	 runTest(new Test3());
+	 runTest(new Test4());
     }
 }

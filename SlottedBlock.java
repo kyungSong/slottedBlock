@@ -130,10 +130,10 @@ public class SlottedBlock
      */
     public int getAvailableSpace()
     {
-	/* space of meta data = (# of entries x 2 x size of int) + end of slot array marker + # of entries marker + prev,next,current blockId
+	/* space of meta data = (length of slot array x 2 x size of int) + end of slot array marker + # of entries marker + prev,next,current blockId
 	   space of records = loop through meta data and tally up second integers(representing how big the record is).
 	*/
-	int spaceTaken = intBuffer.get(0)*2*SIZE_OF_INT + 20;
+	int spaceTaken = 0;
 	
 	//curIndex starts from 4 to account for meta data (# of entries, prev,next,current blockId spans in indexes 0~3)
 	int curIndex = 4;
@@ -145,6 +145,7 @@ public class SlottedBlock
 	    spaceTaken += intBuffer.get(curIndex + 1);
 	    curIndex += 2;
 	}
+	spaceTaken += (curIndex + 1)*4;
 	if(needNewSlot) {
 	    //each "slot" needs two ints, so add 8 bytes to spaceTaken.
 	    spaceTaken += 8;
@@ -272,24 +273,20 @@ public class SlottedBlock
 	
 	//calculate the "length" of the slot array. (two indices makes one slot in the slot array)
 	while(intBuffer.get(slotIndex) != -1) {
-	    System.out.println(intBuffer.get(slotIndex) + "      " + slotIndex);
 	    slotArrayLength += 1;
-	    if(intBuffer.get(slotIndex) < end_of_free_space) {
+	    if(intBuffer.get(slotIndex) < end_of_free_space && intBuffer.get(slotIndex) > 0) {
 		end_of_free_space = intBuffer.get(slotIndex) - 1;
 	    }
 	    slotIndex += 2;
-	    System.out.println(intBuffer.get(slotIndex) + "      " + slotIndex);
-	    System.out.println("----------");
 	}
 	//if slot we are looking for never existed.
 	if (rid.slotNum > slotArrayLength) {
-	    System.out.println(rid.slotNum + ":" + slotArrayLength);
-	    System.out.println(1);
+	    System.out.println("Item # " + rid.slotNum + " does not exist.");
 	    return false;
 	}
 	//if slot we are looking for is already deleted.
 	else if (intBuffer.get(rid.slotNum*2 + 2) == 0) {
-	    System.out.println(2);
+	    System.out.println("Item # " + rid.slotNum + " is already deleted.");
 	    return false;
 	}
 	//if we are in here, it means item to delete does exist.
@@ -303,6 +300,7 @@ public class SlottedBlock
 	intBuffer.put(0, intBuffer.get(0) - 1);
 
 	int dataIndex = offset - 1;
+	
 	//compact the data accordingly.
 	while(dataIndex > end_of_free_space) {
 	    intBuffer.put(dataIndex + length, intBuffer.get(dataIndex));
@@ -311,9 +309,7 @@ public class SlottedBlock
 	//update slot arrays accordingly.
 	slotIndex = 4;
 	while(intBuffer.get(slotIndex) != -1) {
-	    System.out.println(slotIndex + " aaaaaa ");
 	    if(intBuffer.get(slotIndex) < offset && intBuffer.get(slotIndex) > 0) {
-		System.out.println(slotIndex + " adfaff ");
 		intBuffer.put(slotIndex, intBuffer.get(slotIndex) + length);
 	    }
 	    slotIndex += 2;
@@ -324,11 +320,9 @@ public class SlottedBlock
 	slotIndex -= 2;
 	while(intBuffer.get(slotIndex) == 0 && slotIndex != 4) {
 	    slotIndex -= 2;
-	    System.out.println(slotIndex + " adfaff ");
 	}
 	intBuffer.put(prevSlotIndex, 0);
 	intBuffer.put(slotIndex + 2, -1);
-	//System.out.println(slotIndex + " adfaff ");
 
 
 	return true;
