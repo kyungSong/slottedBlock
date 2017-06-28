@@ -1,7 +1,7 @@
 # slottedBlock
 Representation of slotted blocks used in some databases for storing data.
 
-each block is 1024 bytes.
+each block is 1024 bytes long array.
 
 SlottedBlock.java is the wrapper class that gives each block a structure like those used in some databases. Each SlottedBlock holds 5 markers, which are:
 
@@ -11,4 +11,4 @@ SlottedBlock.java is the wrapper class that gives each block a structure like th
 4. Id of next block.
 5. The last slot currently being used.
 
-Blocks auto compacts when an item is deleted.
+A slottedBlock auto compacts when an item is deleted.
